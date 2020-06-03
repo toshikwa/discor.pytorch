@@ -62,7 +62,6 @@ class ReplayBuffer:
         self._action_shape = action_shape
         self._gamma = gamma
         self._nstep = nstep
-        self._discount = gamma ** nstep
 
         self._reset()
 
@@ -127,10 +126,6 @@ class ReplayBuffer:
         dones = self._dones[idxes].to(device)
         next_states = self._next_states[idxes].to(device)
         return states, actions, rewards, next_states, dones
-
-    @property
-    def discount(self):
-        return self._discount
 
     def __len__(self):
         return self._n
