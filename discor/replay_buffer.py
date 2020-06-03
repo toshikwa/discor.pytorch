@@ -27,9 +27,10 @@ class NStepBuffer:
         return state, action, reward
 
     def _nstep_reward(self):
-        r = np.sum([r * d for r, d in zip(self._rewards, self._discounts)])
+        reward = np.sum([
+            r * d for r, d in zip(self._rewards, self._discounts)])
         self._rewards.popleft()
-        return r
+        return reward
 
     def reset(self):
         self._states = deque(maxlen=self._nstep)
@@ -86,10 +87,10 @@ class ReplayBuffer:
                episode_done=None):
 
         if self._nstep != 1:
-            self.buff.append(state, action, reward)
+            self._nstep_buffer.append(state, action, reward)
 
-            if self.buff.is_full():
-                state, action, reward = self.buff.get(self.gamma)
+            if self._nstep_buffer.is_full():
+                state, action, reward = self._nstep_buffer.get(self.gamma)
                 self._append(state, action, reward, next_state, done)
 
             if done or episode_done:
