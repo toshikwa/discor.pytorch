@@ -39,7 +39,7 @@ class BaseNetwork(nn.Module):
         self.load_state_dict(torch.load(path))
 
 
-class LinearNetwork(BaseNetwork):
+class StateActionFunction(BaseNetwork):
 
     def __init__(self, state_dim, action_dim, hidden_units=[256, 256]):
         super().__init__()
@@ -53,13 +53,13 @@ class LinearNetwork(BaseNetwork):
         return self.net(x)
 
 
-class TwinnedLinearNetwork(BaseNetwork):
+class TwinnedStateActionFunction(BaseNetwork):
 
     def __init__(self, state_dim, action_dim, hidden_units=[256, 256]):
         super().__init__()
 
-        self.net1 = LinearNetwork(state_dim, action_dim, hidden_units)
-        self.net2 = LinearNetwork(state_dim, action_dim, hidden_units)
+        self.net1 = StateActionFunction(state_dim, action_dim, hidden_units)
+        self.net2 = StateActionFunction(state_dim, action_dim, hidden_units)
 
     def forward(self, states, actions):
         assert states.dim() == 2 and actions.dim() == 2

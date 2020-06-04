@@ -2,12 +2,12 @@ import os
 import torch
 from torch.optim import Adam
 
-from .base import BaseAlgo
-from discor.network import TwinnedLinearNetwork, GaussianPolicy
+from .base import Algorithm
+from discor.network import TwinnedStateActionFunction, GaussianPolicy
 from discor.utils import disable_gradients, soft_update, update_params
 
 
-class SAC(BaseAlgo):
+class SAC(Algorithm):
 
     def __init__(self, state_dim, action_dim, device, lr=0.0003,
                  policy_hidden_units=[256, 256], q_hidden_units=[256, 256],
@@ -20,12 +20,12 @@ class SAC(BaseAlgo):
             action_dim=action_dim,
             hidden_units=policy_hidden_units
             ).to(self._device)
-        self._online_q_net = TwinnedLinearNetwork(
+        self._online_q_net = TwinnedStateActionFunction(
             state_dim=state_dim,
             action_dim=action_dim,
             hidden_units=q_hidden_units
             ).to(device=self._device)
-        self._target_q_net = TwinnedLinearNetwork(
+        self._target_q_net = TwinnedStateActionFunction(
             state_dim=state_dim,
             action_dim=action_dim,
             hidden_units=q_hidden_units

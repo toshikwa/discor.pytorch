@@ -4,7 +4,7 @@ import numpy as np
 import torch
 
 
-class BaseAlgo(ABC):
+class Algorithm(ABC):
 
     @abstractmethod
     def __init__(self, device, log_interval=10, seed=0):
