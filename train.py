@@ -22,10 +22,9 @@ def run(args):
         "cuda" if args.cuda and torch.cuda.is_available() else "cpu")
 
     # Specify the directory to log.
-    name = args.config.split('/')[-1].rstrip('.yaml')
     time = datetime.now().strftime("%Y%m%d-%H%M")
     log_dir = os.path.join(
-        'logs', args.env_id, f'{name}-seed{args.seed}-{time}')
+        'logs', args.env_id, f'{args.algo}-seed{args.seed}-{time}')
 
     if args.algo == 'discor':
         # Discor algorithm.
