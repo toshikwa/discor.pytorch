@@ -10,7 +10,10 @@ conda create -n discor python=3.8 -y
 conda activate discor
 ```
 
-You can install Python liblaries using pip.
+Then, you need to setup a MuJoCo license for your computer. Please follow the instruction in [mujoco-py](https://github.com/openai/mujoco-py
+) for help.
+
+Finally, you can install Python liblaries using pip.
 
 ```bash
 pip install --upgrade pip
