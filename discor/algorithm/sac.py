@@ -10,7 +10,7 @@ from discor.utils import disable_gradients, soft_update, update_params
 class SAC(Algorithm):
 
     def __init__(self, state_dim, action_dim, device, policy_lr=0.0003,
-                 q_rl=0.0003, entropy_rl=0.0003,
+                 q_lr=0.0003, entropy_lr=0.0003,
                  policy_hidden_units=[256, 256], q_hidden_units=[256, 256],
                  target_update_coef=0.005, log_interval=10, seed=0):
         super().__init__(device, log_interval, seed)
@@ -39,8 +39,7 @@ class SAC(Algorithm):
         disable_gradients(self._target_q_net)
 
         self._policy_optim = Adam(self._policy_net.parameters(), lr=policy_lr)
-        self._q1_optim = Adam(self._online_q_net.net1.parameters(), lr=q_rl)
-        self._q2_optim = Adam(self._online_q_net.net2.parameters(), lr=q_rl)
+        self._q_optim = Adam(self._online_q_net.parameters(), lr=q_lr)
 
         # Target entropy is -|A|.
         self._target_entropy = -action_dim
@@ -49,7 +48,7 @@ class SAC(Algorithm):
         self._log_alpha = torch.zeros(
             1, device=self._device, requires_grad=True)
         self._alpha = self._log_alpha.exp()
-        self._alpha_optim = Adam([self._log_alpha], lr=entropy_rl)
+        self._alpha_optim = Adam([self._log_alpha], lr=entropy_lr)
 
         self._target_update_coef = target_update_coef
 
@@ -70,46 +69,51 @@ class SAC(Algorithm):
             self._target_q_net, self._online_q_net, self._target_update_coef)
 
     def calc_current_q(self, states, actions, rewards, next_states, dones):
-        curr_q1, curr_q2 = self._online_q_net(states, actions)
-        return curr_q1, curr_q2
+        curr_qs1, curr_qs2 = self._online_q_net(states, actions)
+        return curr_qs1, curr_qs2
 
-    def calc_target_q(self, states, actions, rewards, next_states, dones,
-                      discount):
+    def calc_target_q(self, states, actions, rewards, next_states, dones):
         with torch.no_grad():
             next_actions, next_entropies, _ = self._policy_net(next_states)
-            next_q1, next_q2 = self._target_q_net(next_states, next_actions)
-            next_q = torch.min(next_q1, next_q2) + self._alpha * next_entropies
+            next_qs1, next_qs2 = self._target_q_net(next_states, next_actions)
+            next_qs = \
+                torch.min(next_qs1, next_qs2) + self._alpha * next_entropies
 
-        target_q = rewards + (1.0 - dones) * discount * next_q
+        target_qs = rewards + (1.0 - dones) * self._discount * next_qs
 
-        return target_q
+        return target_qs
 
-    def learn(self, batch, discount, writer):
+    def learn(self, batch, writer):
         self._learning_steps += 1
+        states, actions, rewards, next_states, dones = batch
 
-        policy_loss, entropies = self.calc_policy_loss(batch)
-        q1_loss, q2_loss, mean_q1, mean_q2 = self.calc_q_loss(batch, discount)
-        entropy_loss = self.calc_entropy_loss(entropies)
+        # Calculate current and target Q values.
+        curr_qs1, curr_qs2 = self.calc_current_q(*batch)
+        target_qs = self.calc_target_q(*batch)
 
+        # Update policy.
+        policy_loss, entropies = self.calc_policy_loss(states)
         update_params(self._policy_optim, policy_loss)
-        update_params(self._q1_optim, q1_loss)
-        update_params(self._q2_optim, q2_loss)
-        update_params(self._alpha_optim, entropy_loss)
 
+        # Update Q functions.
+        q_loss, mean_q1, mean_q2 = \
+            self.calc_q_loss(curr_qs1, curr_qs2, target_qs)
+        update_params(self._q_optim, q_loss)
+
+        # Update entropy coefficient.
+        entropy_loss = self.calc_entropy_loss(entropies)
+        update_params(self._alpha_optim, entropy_loss)
         self._alpha = self._log_alpha.exp()
 
         if self._learning_steps % self._log_interval == 0:
             writer.add_scalar(
-                'loss/Q1', q1_loss.detach().item(),
-                self._learning_steps)
-            writer.add_scalar(
-                'loss/Q2', q2_loss.detach().item(),
-                self._learning_steps)
-            writer.add_scalar(
                 'loss/policy', policy_loss.detach().item(),
                 self._learning_steps)
             writer.add_scalar(
-                'loss/alpha', entropy_loss.detach().item(),
+                'loss/Q', q_loss.detach().item(),
+                self._learning_steps)
+            writer.add_scalar(
+                'loss/entropy', entropy_loss.detach().item(),
                 self._learning_steps)
             writer.add_scalar(
                 'stats/alpha', self._alpha.detach().item(),
@@ -122,34 +126,32 @@ class SAC(Algorithm):
                 'stats/entropy', entropies.detach().mean().item(),
                 self._learning_steps)
 
-    def calc_policy_loss(self, batch):
-        states, actions, rewards, next_states, dones = batch
+    def calc_q_loss(self, curr_qs1, curr_qs2, target_qs, w1=1.0, w2=1.0):
+        assert isinstance(w1, float) or w1.shape == curr_qs1.shape
+        assert isinstance(w2, float) or w2.shape == curr_qs1.shape
 
+        # Q loss is mean squared TD errors with importance weights.
+        q1_loss = 0.5 * torch.mean((curr_qs1 - target_qs).pow(2) * w1)
+        q2_loss = 0.5 * torch.mean((curr_qs2 - target_qs).pow(2) * w2)
+
+        # Mean Q values for logging.
+        mean_q1 = curr_qs1.detach().mean().item()
+        mean_q2 = curr_qs2.detach().mean().item()
+
+        return q1_loss + q2_loss, mean_q1, mean_q2
+
+    def calc_policy_loss(self, states):
         # Resample actions to calculate expectations of Q.
         sampled_actions, entropies, _ = self._policy_net(states)
 
         # Expectations of Q with clipped double Q technique.
-        q1, q2 = self._online_q_net(states, sampled_actions)
-        q = torch.min(q1, q2)
+        qs1, qs2 = self._online_q_net(states, sampled_actions)
+        qs = torch.min(qs1, qs2)
 
         # Policy objective is maximization of (Q + alpha * entropy).
-        policy_loss = torch.mean((- q - self._alpha * entropies))
+        policy_loss = torch.mean((- qs - self._alpha * entropies))
 
         return policy_loss, entropies.detach()
-
-    def calc_q_loss(self, batch, discount):
-        curr_q1, curr_q2 = self.calc_current_q(*batch)
-        target_q = self.calc_target_q(*batch, discount)
-
-        # Mean Q values for logging.
-        mean_q1 = curr_q1.detach().mean().item()
-        mean_q2 = curr_q2.detach().mean().item()
-
-        # Q loss is mean squared TD errors.
-        q1_loss = torch.mean((curr_q1 - target_q).pow(2))
-        q2_loss = torch.mean((curr_q2 - target_q).pow(2))
-
-        return q1_loss, q2_loss, mean_q1, mean_q2
 
     def calc_entropy_loss(self, entropies):
         assert not entropies.requires_grad

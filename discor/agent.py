@@ -49,12 +49,14 @@ class Agent:
         self._device = device
         self._num_steps = num_steps
         self._batch_size = batch_size
-        self._discount = gamma ** nstep
         self._update_interval = update_interval
         self._start_steps = start_steps
         self._log_interval = log_interval
         self._eval_interval = eval_interval
         self._num_eval_episodes = num_eval_episodes
+
+        setattr(self._algo, '_gamma', gamma)
+        setattr(self._algo, '_discount', gamma ** nstep)
 
     def run(self):
         while True:
@@ -101,7 +103,7 @@ class Agent:
             if self.is_update():
                 batch = \
                     self._replay_buffer.sample(self._batch_size, self._device)
-                self._algo.learn(batch, self._discount, self._writer)
+                self._algo.learn(batch, self._writer)
 
             self._algo.update_target()
 

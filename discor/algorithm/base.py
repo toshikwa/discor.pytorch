@@ -31,7 +31,7 @@ class Algorithm(ABC):
         pass
 
     @abstractmethod
-    def learn(self, batch, discount, writer):
+    def learn(self, batch, writer):
         pass
 
     @abstractmethod
