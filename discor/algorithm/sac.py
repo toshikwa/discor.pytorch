@@ -86,13 +86,13 @@ class SAC(BaseAlgo):
     def learn(self, batch, discount, writer):
         self._learning_steps += 1
 
-        q1_loss, q2_loss, mean_q1, mean_q2 = self.calc_q_loss(batch, discount)
         policy_loss, entropies = self.calc_policy_loss(batch)
+        q1_loss, q2_loss, mean_q1, mean_q2 = self.calc_q_loss(batch, discount)
         entropy_loss = self.calc_entropy_loss(entropies)
 
+        update_params(self._policy_optim, policy_loss)
         update_params(self._q1_optim, q1_loss)
         update_params(self._q2_optim, q2_loss)
-        update_params(self._policy_optim, policy_loss)
         update_params(self._alpha_optim, entropy_loss)
 
         self._alpha = self._log_alpha.exp()
@@ -121,6 +121,21 @@ class SAC(BaseAlgo):
                 'stats/entropy', entropies.detach().mean().item(),
                 self._learning_steps)
 
+    def calc_policy_loss(self, batch):
+        states, actions, rewards, next_states, dones = batch
+
+        # Resample actions to calculate expectations of Q.
+        sampled_actions, entropies, _ = self._policy_net(states)
+
+        # Expectations of Q with clipped double Q technique.
+        q1, q2 = self._online_q_net(states, sampled_actions)
+        q = torch.min(q1, q2)
+
+        # Policy objective is maximization of (Q + alpha * entropy).
+        policy_loss = torch.mean((- q - self._alpha * entropies))
+
+        return policy_loss, entropies.detach()
+
     def calc_q_loss(self, batch, discount):
         curr_q1, curr_q2 = self.calc_current_q(*batch)
         target_q = self.calc_target_q(*batch, discount)
@@ -134,21 +149,6 @@ class SAC(BaseAlgo):
         q2_loss = torch.mean((curr_q2 - target_q).pow(2))
 
         return q1_loss, q2_loss, mean_q1, mean_q2
-
-    def calc_policy_loss(self, batch):
-        states, actions, rewards, next_states, dones = batch
-
-        with torch.no_grad():
-            # Resample actions to calculate expectations of Q.
-            sampled_actions, entropies, _ = self._policy_net(states)
-            # Expectations of Q with clipped double Q technique.
-            q1, q2 = self._online_q_net(states, sampled_actions)
-            q = torch.min(q1, q2)
-
-        # Policy objective is maximization of (Q + alpha * entropy).
-        policy_loss = torch.mean((- q - self._alpha * entropies))
-
-        return policy_loss, entropies.detach()
 
     def calc_entropy_loss(self, entropies):
         assert not entropies.requires_grad
