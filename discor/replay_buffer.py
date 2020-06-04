@@ -69,15 +69,15 @@ class ReplayBuffer:
         self._n = 0
         self._p = 0
 
-        self._states = torch.empty(
-            (self._memory_size, ) + self._state_shape, dtype=torch.float)
-        self._next_states = torch.empty(
-            (self._memory_size, ) + self._state_shape, dtype=torch.float)
-        self._actions = torch.empty(
-            (self._memory_size, ) + self._action_shape, dtype=torch.float)
+        self._states = np.empty(
+            (self._memory_size, ) + self._state_shape, dtype=np.float32)
+        self._next_states = np.empty(
+            (self._memory_size, ) + self._state_shape, dtype=np.float32)
+        self._actions = np.empty(
+            (self._memory_size, ) + self._action_shape, dtype=np.float32)
 
-        self._rewards = torch.empty((self._memory_size, 1), dtype=torch.float)
-        self._dones = torch.empty((self._memory_size, 1), dtype=torch.float)
+        self._rewards = np.empty((self._memory_size, 1), dtype=np.float32)
+        self._dones = np.empty((self._memory_size, 1), dtype=np.float32)
 
         if self._nstep != 1:
             self._nstep_buffer = NStepBuffer(self._gamma, self._nstep)
@@ -101,7 +101,7 @@ class ReplayBuffer:
             self._append(state, action, reward, next_state, done)
 
     def _append(self, state, action, reward, next_state, done):
-        self._states[self._p] = state
+        self._states[self._p, ...] = state
         self._actions[self._p] = action
         self._rewards[self._p] = reward
         self._next_states[self._p] = next_state
@@ -120,11 +120,16 @@ class ReplayBuffer:
         return np.random.randint(0, self._n, size=batch_size)
 
     def _sample_batch(self, idxes, batch_size, device):
-        states = self._states[idxes].to(device)
-        actions = self._actions[idxes].to(device)
-        rewards = self._rewards[idxes].to(device)
-        dones = self._dones[idxes].to(device)
-        next_states = self._next_states[idxes].to(device)
+        states = torch.tensor(
+            self._states[idxes], dtype=torch.float, device=device)
+        actions = torch.tensor(
+            self._actions[idxes], dtype=torch.float, device=device)
+        rewards = torch.tensor(
+            self._rewards[idxes], dtype=torch.float, device=device)
+        dones = torch.tensor(
+            self._dones[idxes], dtype=torch.float, device=device)
+        next_states = torch.tensor(
+            self._next_states[idxes], dtype=torch.float, device=device)
         return states, actions, rewards, next_states, dones
 
     def __len__(self):

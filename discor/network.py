@@ -10,7 +10,7 @@ def initialize_weights_xavier(m, gain=1.0):
             nn.init.constant_(m.bias, 0)
 
 
-def create_linear_network(input_dim, output_dim, hidden_units=(),
+def create_linear_network(input_dim, output_dim, hidden_units=[],
                           hidden_activation=nn.ReLU(), output_activation=None,
                           initializer=initialize_weights_xavier):
     assert isinstance(input_dim, int) and isinstance(output_dim, int)
@@ -41,7 +41,7 @@ class BaseNetwork(nn.Module):
 
 class LinearNetwork(BaseNetwork):
 
-    def __init__(self, state_dim, action_dim, hidden_units=(256, 256)):
+    def __init__(self, state_dim, action_dim, hidden_units=[256, 256]):
         super().__init__()
 
         self.net = create_linear_network(
@@ -55,7 +55,7 @@ class LinearNetwork(BaseNetwork):
 
 class TwinnedLinearNetwork(BaseNetwork):
 
-    def __init__(self, state_dim, action_dim, hidden_units=(256, 256)):
+    def __init__(self, state_dim, action_dim, hidden_units=[256, 256]):
         super().__init__()
 
         self.net1 = LinearNetwork(state_dim, action_dim, hidden_units)
@@ -70,11 +70,11 @@ class TwinnedLinearNetwork(BaseNetwork):
         return value1, value2
 
 
-class GaussianPolicy(BaseException):
+class GaussianPolicy(BaseNetwork):
     LOG_STD_MAX = 2
     LOG_STD_MIN = -20
 
-    def __init__(self, state_dim, action_dim, hidden_units=(256, 256)):
+    def __init__(self, state_dim, action_dim, hidden_units=[256, 256]):
         super().__init__()
 
         self.net = create_linear_network(
@@ -86,7 +86,7 @@ class GaussianPolicy(BaseException):
         assert states.dim() == 2
 
         # Calculate means and stds of actions.
-        means, log_stds = torch.chunk(self.policy(states), 2, dim=-1)
+        means, log_stds = torch.chunk(self.net(states), 2, dim=-1)
         log_stds = torch.clamp(log_stds, self.LOG_STD_MIN, self.LOG_STD_MAX)
         stds = log_stds.exp()
 
