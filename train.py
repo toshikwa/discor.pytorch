@@ -27,11 +27,15 @@ def run(args):
     log_dir = os.path.join(
         'logs', args.env_id, f'{name}-seed{args.seed}-{time}')
 
-    # Build SAC Algorithm.
-    algo = SAC(
-        state_dim=env.observation_space.shape[0],
-        action_dim=env.action_space.shape[0],
-        device=device, seed=args.seed, **config['SAC'])
+    if args.discor:
+        # Build Discor algorithm.
+        pass
+    else:
+        # Build SAC algorithm.
+        algo = SAC(
+            state_dim=env.observation_space.shape[0],
+            action_dim=env.action_space.shape[0],
+            device=device, seed=args.seed, **config['SAC'])
 
     agent = Agent(
         env=env, test_env=test_env, algo=algo, log_dir=log_dir,
@@ -42,8 +46,9 @@ def run(args):
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument(
-        '--config', type=str, default=os.path.join('config', 'sac.yaml'))
-    parser.add_argument('--env_id', type=str, default='hammer-v1')
+        '--config', type=str, default=os.path.join('config', 'mujoco.yaml'))
+    parser.add_argument('--env_id', type=str, default='HalfCheetah-v2')
+    parser.add_argument('--discor', action='store_true')
     parser.add_argument('--cuda', action='store_true')
     parser.add_argument('--seed', type=int, default=0)
     args = parser.parse_args()

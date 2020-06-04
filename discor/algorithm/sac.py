@@ -9,7 +9,8 @@ from discor.utils import disable_gradients, soft_update, update_params
 
 class SAC(Algorithm):
 
-    def __init__(self, state_dim, action_dim, device, lr=0.0003,
+    def __init__(self, state_dim, action_dim, device, policy_lr=0.0003,
+                 q_rl=0.0003, entropy_rl=0.0003,
                  policy_hidden_units=[256, 256], q_hidden_units=[256, 256],
                  target_update_coef=0.005, log_interval=10, seed=0):
         super().__init__(device, log_interval, seed)
@@ -37,9 +38,9 @@ class SAC(Algorithm):
         # Disable gradient calculations of the target network.
         disable_gradients(self._target_q_net)
 
-        self._policy_optim = Adam(self._policy_net.parameters(), lr=lr)
-        self._q1_optim = Adam(self._online_q_net.net1.parameters(), lr=lr)
-        self._q2_optim = Adam(self._online_q_net.net2.parameters(), lr=lr)
+        self._policy_optim = Adam(self._policy_net.parameters(), lr=policy_lr)
+        self._q1_optim = Adam(self._online_q_net.net1.parameters(), lr=q_rl)
+        self._q2_optim = Adam(self._online_q_net.net2.parameters(), lr=q_rl)
 
         # Target entropy is -|A|.
         self._target_entropy = -action_dim
@@ -48,7 +49,7 @@ class SAC(Algorithm):
         self._log_alpha = torch.zeros(
             1, device=self._device, requires_grad=True)
         self._alpha = self._log_alpha.exp()
-        self._alpha_optim = Adam([self._log_alpha], lr=lr)
+        self._alpha_optim = Adam([self._log_alpha], lr=entropy_rl)
 
         self._target_update_coef = target_update_coef
 

@@ -10,7 +10,9 @@ Agent:
   eval_interval: 10000
 
 SAC:
-  lr: 0.0003
+  policy_lr: 0.0003
+  q_lr: 0.0003
+  entropy_lr: 0.0003
   policy_hidden_units: [256, 256]
   q_hidden_units: [256, 256]
   target_update_coef: 0.005
