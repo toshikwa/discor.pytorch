@@ -50,7 +50,7 @@ class NStepBuffer:
 class ReplayBuffer:
 
     def __init__(self, memory_size, state_shape, action_shape, gamma=0.99,
-                 nstep=3):
+                 nstep=1):
         assert isinstance(memory_size, int) and memory_size > 0
         assert isinstance(state_shape, tuple)
         assert isinstance(action_shape, tuple)
@@ -89,7 +89,7 @@ class ReplayBuffer:
             self._nstep_buffer.append(state, action, reward)
 
             if self._nstep_buffer.is_full():
-                state, action, reward = self._nstep_buffer.get(self.gamma)
+                state, action, reward = self._nstep_buffer.get(self._gamma)
                 self._append(state, action, reward, next_state, done)
 
             if done or episode_done:
@@ -102,10 +102,10 @@ class ReplayBuffer:
 
     def _append(self, state, action, reward, next_state, done):
         self._states[self._p, ...] = state
-        self._actions[self._p] = action
-        self._rewards[self._p] = reward
-        self._next_states[self._p] = next_state
-        self._dones[self._p] = done
+        self._actions[self._p, ...] = action
+        self._rewards[self._p, ...] = reward
+        self._next_states[self._p, ...] = next_state
+        self._dones[self._p, ...] = done
 
         self._n = min(self._n + 1, self._memory_size)
         self._p = (self._p + 1) % self._memory_size
@@ -117,7 +117,7 @@ class ReplayBuffer:
         return self._sample_batch(idxes, batch_size, device)
 
     def _sample_idxes(self, batch_size):
-        return np.random.randint(0, self._n, size=batch_size)
+        return np.random.randint(low=0, high=self._n, size=batch_size)
 
     def _sample_batch(self, idxes, batch_size, device):
         states = torch.tensor(
@@ -130,6 +130,7 @@ class ReplayBuffer:
             self._dones[idxes], dtype=torch.float, device=device)
         next_states = torch.tensor(
             self._next_states[idxes], dtype=torch.float, device=device)
+
         return states, actions, rewards, next_states, dones
 
     def __len__(self):

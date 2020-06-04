@@ -11,9 +11,8 @@ class DisCor(SAC):
 
     def __init__(self, state_dim, action_dim, device, policy_lr=0.0003,
                  q_lr=0.0003, entropy_lr=0.0003, error_lr=0.0003,
-                 policy_hidden_units=[256, 256, 256],
-                 q_hidden_units=[256, 256, 256],
-                 error_hidden_units=[256, 256, 256, 256],
+                 policy_hidden_units=[256, 256], q_hidden_units=[256, 256],
+                 error_hidden_units=[256, 256, 256],
                  tau_init=10.0, target_update_coef=0.005,
                  log_interval=10, seed=0):
         super().__init__(
@@ -57,12 +56,12 @@ class DisCor(SAC):
         states, actions, rewards, next_states, dones = batch
 
         # Calculate current and target Q values.
-        curr_q1s, curr_q2s = self.calc_current_q(*batch)
-        target_qs = self.calc_target_q(*batch)
+        curr_qs1, curr_qs2 = self.calc_current_q(states, actions)
+        target_qs = self.calc_target_q(rewards, next_states, dones)
 
         # Calculate target errors and importance weights.
         target_errs1, target_errs2 = self.calc_target_error(
-            next_states, dones, curr_q1s, curr_q2s, target_qs)
+            next_states, dones, curr_qs1, curr_qs2, target_qs)
         errs1, errs2, w1, w2 = self.calc_importance_weights(states, actions)
 
         # Update policy.
@@ -71,15 +70,15 @@ class DisCor(SAC):
 
         # Update Q functions.
         q_loss, mean_q1, mean_q2 = \
-            self.calc_q_loss(curr_q1s, curr_q2s, target_qs, w1, w2)
+            self.calc_q_loss(curr_qs1, curr_qs2, target_qs, w1, w2)
         update_params(self._q_optim, q_loss)
 
-        # Update entropy coefficient.
+        # Update the entropy coefficient.
         entropy_loss = self.calc_entropy_loss(entropies)
         update_params(self._alpha_optim, entropy_loss)
         self._alpha = self._log_alpha.exp()
 
-        # Update error models and temperature parameters 'tau'.
+        # Update error models.
         err_loss = self.calc_error_loss(
             errs1, errs2, target_errs1, target_errs2)
         update_params(self._error_optim, err_loss)
@@ -112,7 +111,7 @@ class DisCor(SAC):
             writer.add_scalar(
                 'stats/tau2', self._tau2.item(), self._learning_steps)
 
-    def calc_target_error(self, next_states, dones, curr_q1s, curr_q2s,
+    def calc_target_error(self, next_states, dones, curr_qs1, curr_qs2,
                           target_qs):
         # Calculate targets of the cumulative sum of discounted Bellman errors,
         # which is 'Delta' in the paper.
@@ -121,9 +120,9 @@ class DisCor(SAC):
             next_errs1, next_errs2 = \
                 self._target_error_net(next_states, next_actions)
 
-            target_errs1 = (curr_q1s - target_qs).abs() + \
+            target_errs1 = (curr_qs1 - target_qs).abs() + \
                 (1.0 - dones) * self._gamma * next_errs1
-            target_errs2 = (curr_q2s - target_qs).abs() + \
+            target_errs2 = (curr_qs2 - target_qs).abs() + \
                 (1.0 - dones) * self._gamma * next_errs2
 
         return target_errs1, target_errs2
@@ -140,8 +139,8 @@ class DisCor(SAC):
         return errs1, errs2, w1, w2
 
     def calc_error_loss(self, errs1, errs2, target_errs1, target_errs2):
-        err1_loss = 0.5 * torch.mean((errs1 - target_errs1).pow(2))
-        err2_loss = 0.5 * torch.mean((errs2 - target_errs2).pow(2))
+        err1_loss = torch.mean((errs1 - target_errs1).pow(2))
+        err2_loss = torch.mean((errs2 - target_errs2).pow(2))
 
         self._tau1 = self._tau1 * (1.0 - self._target_update_coef) + \
             errs1.detach().mean() * self._target_update_coef

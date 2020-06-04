@@ -12,7 +12,7 @@ class Agent:
                  batch_size=256, memory_size=1000000,
                  gamma=0.99, nstep=1, update_interval=1,
                  start_steps=10000, log_interval=10,
-                 eval_interval=1000, num_eval_episodes=1, seed=0):
+                 eval_interval=5000, num_eval_episodes=5, seed=0):
 
         # Environment.
         self._env = env
@@ -64,10 +64,6 @@ class Agent:
             if self._steps > self._num_steps:
                 break
 
-    def is_update(self):
-        return self._steps % self._update_interval == 0\
-            and self._steps >= self._start_steps
-
     def train_episode(self):
         self._episodes += 1
         episode_return = 0.
@@ -87,29 +83,35 @@ class Agent:
 
             # Set done=True only when the agent fails, ignoring done signal
             # if the agent reach time horizons.
-            if episode_steps >= self._env._max_episode_steps:
+            if episode_steps + 1 >= self._env._max_episode_steps:
                 masked_done = False
             else:
                 masked_done = done
 
             self._replay_buffer.append(
-                state, action, reward, next_state, masked_done, done)
+                state, action, reward, next_state, masked_done,
+                episode_done=done)
 
             self._steps += 1
             episode_steps += 1
             episode_return += reward
             state = next_state
 
-            if self.is_update():
-                batch = \
-                    self._replay_buffer.sample(self._batch_size, self._device)
-                self._algo.learn(batch, self._writer)
+            if self._steps >= self._start_steps:
+                # Update online networks.
+                if self._steps % self._update_interval == 0:
+                    batch = self._replay_buffer.sample(
+                        self._batch_size, self._device)
+                    self._algo.learn(batch, self._writer)
 
-            self._algo.update_target()
+                # Update target networks.
+                self._algo.update_target()
 
-            if self._steps % self._eval_interval == 0:
-                self.evaluate()
-                self._algo.save_models(os.path.join(self._model_dir, 'final'))
+                # Evaluate.
+                if self._steps % self._eval_interval == 0:
+                    self.evaluate()
+                    self._algo.save_models(
+                        os.path.join(self._model_dir, 'final'))
 
         # We log running mean of training rewards.
         self._train_return.append(episode_return)
@@ -123,19 +125,15 @@ class Agent:
               f'Return: {episode_return:<5.1f}')
 
     def evaluate(self):
-        num_steps = 0
         total_return = 0.0
 
         for _ in range(self._num_eval_episodes):
             state = self._test_env.reset()
-            episode_steps = 0
             episode_return = 0.0
             done = False
             while (not done):
                 action = self._algo.exploit(state)
                 next_state, reward, done, _ = self._test_env.step(action)
-                num_steps += 1
-                episode_steps += 1
                 episode_return += reward
                 state = next_state
 

@@ -25,12 +25,12 @@ class SAC(Algorithm):
             state_dim=state_dim,
             action_dim=action_dim,
             hidden_units=q_hidden_units
-            ).to(device=self._device)
+            ).to(self._device)
         self._target_q_net = TwinnedStateActionFunction(
             state_dim=state_dim,
             action_dim=action_dim,
             hidden_units=q_hidden_units
-            ).to(device=self._device).eval()
+            ).to(self._device).eval()
 
         # Copy parameters of the learning network to the target network.
         self._target_q_net.load_state_dict(self._online_q_net.state_dict())
@@ -38,11 +38,12 @@ class SAC(Algorithm):
         # Disable gradient calculations of the target network.
         disable_gradients(self._target_q_net)
 
+        # Optimizers.
         self._policy_optim = Adam(self._policy_net.parameters(), lr=policy_lr)
         self._q_optim = Adam(self._online_q_net.parameters(), lr=q_lr)
 
         # Target entropy is -|A|.
-        self._target_entropy = -action_dim
+        self._target_entropy = -float(action_dim)
 
         # We optimize log(alpha), instead of alpha.
         self._log_alpha = torch.zeros(
@@ -53,32 +54,35 @@ class SAC(Algorithm):
         self._target_update_coef = target_update_coef
 
     def explore(self, state):
-        state = torch.FloatTensor(state[None, ...]).to(self._device)
+        state = torch.tensor(
+            state[None, ...], dtype=torch.float, device=self._device)
         with torch.no_grad():
             action, _, _ = self._policy_net(state)
-        return action.cpu().numpy().reshape(-1)
+        return action.cpu().numpy()[0]
 
     def exploit(self, state):
-        state = torch.FloatTensor(state[None, ...]).to(self._device)
+        state = torch.tensor(
+            state[None, ...], dtype=torch.float, device=self._device)
         with torch.no_grad():
             _, _, action = self._policy_net(state)
-        return action.cpu().numpy().reshape(-1)
+        return action.cpu().numpy()[0]
 
     def update_target(self):
         soft_update(
             self._target_q_net, self._online_q_net, self._target_update_coef)
 
-    def calc_current_q(self, states, actions, rewards, next_states, dones):
+    def calc_current_q(self, states, actions):
         curr_qs1, curr_qs2 = self._online_q_net(states, actions)
         return curr_qs1, curr_qs2
 
-    def calc_target_q(self, states, actions, rewards, next_states, dones):
+    def calc_target_q(self, rewards, next_states, dones):
         with torch.no_grad():
             next_actions, next_entropies, _ = self._policy_net(next_states)
             next_qs1, next_qs2 = self._target_q_net(next_states, next_actions)
             next_qs = \
                 torch.min(next_qs1, next_qs2) + self._alpha * next_entropies
 
+        assert rewards.shape == next_qs.shape
         target_qs = rewards + (1.0 - dones) * self._discount * next_qs
 
         return target_qs
@@ -88,8 +92,8 @@ class SAC(Algorithm):
         states, actions, rewards, next_states, dones = batch
 
         # Calculate current and target Q values.
-        curr_qs1, curr_qs2 = self.calc_current_q(*batch)
-        target_qs = self.calc_target_q(*batch)
+        curr_qs1, curr_qs2 = self.calc_current_q(states, actions)
+        target_qs = self.calc_target_q(rewards, next_states, dones)
 
         # Update policy.
         policy_loss, entropies = self.calc_policy_loss(states)
@@ -100,7 +104,7 @@ class SAC(Algorithm):
             self.calc_q_loss(curr_qs1, curr_qs2, target_qs)
         update_params(self._q_optim, q_loss)
 
-        # Update entropy coefficient.
+        # Update the entropy coefficient.
         entropy_loss = self.calc_entropy_loss(entropies)
         update_params(self._alpha_optim, entropy_loss)
         self._alpha = self._log_alpha.exp()
@@ -128,11 +132,13 @@ class SAC(Algorithm):
 
     def calc_q_loss(self, curr_qs1, curr_qs2, target_qs, w1=1.0, w2=1.0):
         assert isinstance(w1, float) or w1.shape == curr_qs1.shape
-        assert isinstance(w2, float) or w2.shape == curr_qs1.shape
+        assert isinstance(w2, float) or w2.shape == curr_qs2.shape
+        assert not target_qs.requires_grad
+        assert curr_qs1.shape == target_qs.shape
 
         # Q loss is mean squared TD errors with importance weights.
-        q1_loss = 0.5 * torch.mean((curr_qs1 - target_qs).pow(2) * w1)
-        q2_loss = 0.5 * torch.mean((curr_qs2 - target_qs).pow(2) * w2)
+        q1_loss = torch.mean((curr_qs1 - target_qs).pow(2) * w1)
+        q2_loss = torch.mean((curr_qs2 - target_qs).pow(2) * w2)
 
         # Mean Q values for logging.
         mean_q1 = curr_qs1.detach().mean().item()
@@ -149,6 +155,7 @@ class SAC(Algorithm):
         qs = torch.min(qs1, qs2)
 
         # Policy objective is maximization of (Q + alpha * entropy).
+        assert qs.shape == entropies.shape
         policy_loss = torch.mean((- qs - self._alpha * entropies))
 
         return policy_loss, entropies.detach()

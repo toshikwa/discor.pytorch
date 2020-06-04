@@ -87,8 +87,9 @@ class GaussianPolicy(BaseNetwork):
 
         # Calculate means and stds of actions.
         means, log_stds = torch.chunk(self.net(states), 2, dim=-1)
-        log_stds = torch.clamp(log_stds, self.LOG_STD_MIN, self.LOG_STD_MAX)
-        stds = log_stds.exp()
+        log_stds = torch.clamp(
+            log_stds, min=self.LOG_STD_MIN, max=self.LOG_STD_MAX)
+        stds = log_stds.exp_()
 
         # Gaussian distributions.
         normals = Normal(means, stds)
