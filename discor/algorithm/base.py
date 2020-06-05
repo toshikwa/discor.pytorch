@@ -17,6 +17,8 @@ class Algorithm(ABC):
         self._learning_steps = 0
         self._device = device
         self._log_interval = log_interval
+        self._gamma = None
+        self._discount = None
 
     @abstractmethod
     def explore(self, state):

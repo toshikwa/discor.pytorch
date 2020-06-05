@@ -47,8 +47,8 @@ class DisCor(SAC):
         self._tau2 = torch.tensor(
             tau_init, device=self._device, requires_grad=False)
 
-    def update_target(self):
-        super().update_target()
+    def update_target_networks(self):
+        super().update_target_networks()
         soft_update(
             self._target_error_net, self._online_error_net,
             self._target_update_coef)
@@ -62,14 +62,13 @@ class DisCor(SAC):
         target_qs = self.calc_target_qs(rewards, next_states, dones)
 
         # Calculate current and target errors, as well as importance weights.
-        curr_errs1, curr_errs2,  = \
-            self.calc_current_errors(states, actions)
+        curr_errs1, curr_errs2 = self.calc_current_errors(states, actions)
         target_errs1, target_errs2 = self.calc_target_errors(
             next_states, dones, curr_qs1, curr_qs2, target_qs)
 
         # Calculate importance weights.
         imp_ws1, imp_ws2 = \
-            self.calc_importance_weights(target_errs1, target_errs2)
+            self.calc_importance_weights(next_states, dones)
 
         # Update policy.
         policy_loss, entropies = self.calc_policy_loss(states)
@@ -127,7 +126,7 @@ class DisCor(SAC):
         # Calculate targets of the cumulative sum of discounted Bellman errors,
         # which is 'Delta' in the paper.
         with torch.no_grad():
-            next_actions, next_entropies, _ = self._policy_net(next_states)
+            next_actions, _, _ = self._policy_net(next_states)
             next_errs1, next_errs2 = \
                 self._target_error_net(next_states, next_actions)
 
@@ -138,10 +137,18 @@ class DisCor(SAC):
 
         return target_errs1, target_errs2
 
-    def calc_importance_weights(self, target_errs1, target_errs2):
+    def calc_importance_weights(self, next_states, dones):
+        with torch.no_grad():
+            next_actions, _, _ = self._policy_net(next_states)
+            next_errs1, next_errs2 = \
+                self._target_error_net(next_states, next_actions)
+
+        numerators1 = (1.0 - dones) * self._gamma * next_errs1
+        numerators2 = (1.0 - dones) * self._gamma * next_errs2
+
         # Calculate self-normalized importance weights.
-        imp_ws1 = torch.exp(- self._gamma * target_errs1 / self._tau1)
-        imp_ws2 = torch.exp(- self._gamma * target_errs2 / self._tau2)
+        imp_ws1 = torch.exp(- numerators1 / self._tau1)
+        imp_ws2 = torch.exp(- numerators2 / self._tau2)
 
         return imp_ws1 / imp_ws1.sum(), imp_ws2 / imp_ws2.sum()
 
