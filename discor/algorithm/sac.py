@@ -102,8 +102,6 @@ class SAC(Algorithm):
                 'stats/entropy', entropies.detach().mean().item(),
                 self._learning_steps)
 
-        return policy_loss, entropies, entropy_loss
-
     def calc_policy_loss(self, states):
         # Resample actions to calculate expectations of Q.
         sampled_actions, entropies, _ = self._policy_net(states)
@@ -148,7 +146,8 @@ class SAC(Algorithm):
             writer.add_scalar(
                 'stats/mean_Q2', mean_q2, self._learning_steps)
 
-        return q_loss, curr_qs1, curr_qs2, target_qs
+        # Return there values for DisCor algorithm.
+        return curr_qs1.detach(), curr_qs2.detach(), target_qs
 
     def calc_current_qs(self, states, actions):
         curr_qs1, curr_qs2 = self._online_q_net(states, actions)

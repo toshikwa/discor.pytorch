@@ -65,7 +65,7 @@ class DisCor(SAC):
         imp_ws1, imp_ws2 = self.calc_importance_weights(next_states, dones)
 
         # Update Q functions.
-        _, curr_qs1, curr_qs2, target_qs = \
+        curr_qs1, curr_qs2, target_qs = \
             self.update_q_functions(batch, writer, imp_ws1, imp_ws2)
 
         # Calculate current and target errors, as well as importance weights.
