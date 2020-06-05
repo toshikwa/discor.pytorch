@@ -55,33 +55,23 @@ class DisCor(SAC):
 
     def learn(self, batch, writer):
         self._learning_steps += 1
+        self.update_policy_and_entropy(batch, writer)
+        self.update_q_functions_and_error_models(batch, writer)
+
+    def update_q_functions_and_error_models(self, batch, writer):
         states, actions, rewards, next_states, dones = batch
 
-        # Calculate current and target Q values.
-        curr_qs1, curr_qs2 = self.calc_current_qs(states, actions)
-        target_qs = self.calc_target_qs(rewards, next_states, dones)
+        # Calculate importance weights.
+        imp_ws1, imp_ws2 = self.calc_importance_weights(next_states, dones)
+
+        # Update Q functions.
+        _, curr_qs1, curr_qs2, target_qs = \
+            self.update_q_functions(batch, writer, imp_ws1, imp_ws2)
 
         # Calculate current and target errors, as well as importance weights.
         curr_errs1, curr_errs2 = self.calc_current_errors(states, actions)
         target_errs1, target_errs2 = self.calc_target_errors(
             next_states, dones, curr_qs1, curr_qs2, target_qs)
-
-        # Calculate importance weights.
-        imp_ws1, imp_ws2 = self.calc_importance_weights(next_states, dones)
-
-        # Update policy.
-        policy_loss, entropies = self.calc_policy_loss(states)
-        update_params(self._policy_optim, policy_loss)
-
-        # Update Q functions.
-        q_loss, mean_q1, mean_q2 = \
-            self.calc_q_loss(curr_qs1, curr_qs2, target_qs, imp_ws1, imp_ws2)
-        update_params(self._q_optim, q_loss)
-
-        # Update the entropy coefficient.
-        entropy_loss = self.calc_entropy_loss(entropies)
-        update_params(self._alpha_optim, entropy_loss)
-        self._alpha = self._log_alpha.exp()
 
         # Update error models.
         err_loss = self.calc_error_loss(
@@ -90,31 +80,28 @@ class DisCor(SAC):
 
         if self._learning_steps % self._log_interval == 0:
             writer.add_scalar(
-                'loss/policy', policy_loss.detach().item(),
-                self._learning_steps)
-            writer.add_scalar(
-                'loss/Q', q_loss.detach().item(),
-                self._learning_steps)
-            writer.add_scalar(
-                'loss/entropy', entropy_loss.detach().item(),
-                self._learning_steps)
-            writer.add_scalar(
                 'loss/error', err_loss.detach().item(),
-                self._learning_steps)
-            writer.add_scalar(
-                'stats/alpha', self._alpha.detach().item(),
-                self._learning_steps)
-            writer.add_scalar(
-                'stats/mean_Q1', mean_q1, self._learning_steps)
-            writer.add_scalar(
-                'stats/mean_Q2', mean_q2, self._learning_steps)
-            writer.add_scalar(
-                'stats/entropy', entropies.detach().mean().item(),
                 self._learning_steps)
             writer.add_scalar(
                 'stats/tau1', self._tau1.item(), self._learning_steps)
             writer.add_scalar(
                 'stats/tau2', self._tau2.item(), self._learning_steps)
+
+    def calc_importance_weights(self, next_states, dones):
+        with torch.no_grad():
+            next_actions, _, _ = self._policy_net(next_states)
+            next_errs1, next_errs2 = \
+                self._target_error_net(next_states, next_actions)
+
+        # Numerators inside the exponent of importance weights.
+        nums1 = (1.0 - dones) * self._gamma * next_errs1
+        nums2 = (1.0 - dones) * self._gamma * next_errs2
+
+        # Calculate self-normalized importance weights.
+        imp_ws1 = torch.exp(- nums1 / self._tau1)
+        imp_ws2 = torch.exp(- nums2 / self._tau2)
+
+        return imp_ws1 / imp_ws1.sum(), imp_ws2 / imp_ws2.sum()
 
     def calc_current_errors(self, states, actions):
         curr_errs1, curr_errs2 = self._online_error_net(states, actions)
@@ -135,22 +122,6 @@ class DisCor(SAC):
                 (1.0 - dones) * self._gamma * next_errs2
 
         return target_errs1, target_errs2
-
-    def calc_importance_weights(self, next_states, dones):
-        with torch.no_grad():
-            next_actions, _, _ = self._policy_net(next_states)
-            next_errs1, next_errs2 = \
-                self._target_error_net(next_states, next_actions)
-
-        # Numerators inside the exponent of importance weights.
-        nums1 = (1.0 - dones) * self._gamma * next_errs1
-        nums2 = (1.0 - dones) * self._gamma * next_errs2
-
-        # Calculate self-normalized importance weights.
-        imp_ws1 = torch.exp(- nums1 / self._tau1)
-        imp_ws2 = torch.exp(- nums2 / self._tau2)
-
-        return imp_ws1 / imp_ws1.sum(), imp_ws2 / imp_ws2.sum()
 
     def calc_error_loss(self, curr_errs1, curr_errs2, target_errs1,
                         target_errs2):
