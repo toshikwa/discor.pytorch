@@ -9,16 +9,16 @@ from discor.utils import disable_gradients, soft_update, update_params
 
 class DisCor(SAC):
 
-    def __init__(self, state_dim, action_dim, device, policy_lr=0.0003,
-                 q_lr=0.0003, entropy_lr=0.0003, error_lr=0.0003,
-                 policy_hidden_units=[256, 256], q_hidden_units=[256, 256],
-                 error_hidden_units=[256, 256, 256],
+    def __init__(self, state_dim, action_dim, device, gamma=0.99, nstep=1,
+                 policy_lr=0.0003, q_lr=0.0003, entropy_lr=0.0003,
+                 error_lr=0.0003, policy_hidden_units=[256, 256],
+                 q_hidden_units=[256, 256], error_hidden_units=[256, 256, 256],
                  tau_init=10.0, target_update_coef=0.005,
                  log_interval=10, seed=0):
         super().__init__(
-            state_dim, action_dim, device, policy_lr, q_lr, entropy_lr,
-            policy_hidden_units, q_hidden_units, target_update_coef,
-            log_interval, seed)
+            state_dim, action_dim, device, gamma, nstep, policy_lr, q_lr,
+            entropy_lr, policy_hidden_units, q_hidden_units,
+            target_update_coef, log_interval, seed)
 
         # Build error networks.
         self._online_error_net = TwinnedStateActionFunction(
@@ -53,7 +53,7 @@ class DisCor(SAC):
             self._target_error_net, self._online_error_net,
             self._target_update_coef)
 
-    def learn(self, batch, writer):
+    def update_online_networks(self, batch, writer):
         self._learning_steps += 1
         self.update_policy_and_entropy(batch, writer)
         self.update_q_functions_and_error_models(batch, writer)

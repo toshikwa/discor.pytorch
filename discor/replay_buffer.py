@@ -89,7 +89,7 @@ class ReplayBuffer:
             self._nstep_buffer.append(state, action, reward)
 
             if self._nstep_buffer.is_full():
-                state, action, reward = self._nstep_buffer.get(self._gamma)
+                state, action, reward = self._nstep_buffer.get()
                 self._append(state, action, reward, next_state, done)
 
             if done or episode_done:

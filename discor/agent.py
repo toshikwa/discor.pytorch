@@ -10,8 +10,7 @@ class Agent:
 
     def __init__(self, env, test_env, algo, log_dir, device, num_steps=3000000,
                  batch_size=256, memory_size=1000000,
-                 gamma=0.99, nstep=1, update_interval=1,
-                 start_steps=10000, log_interval=10,
+                 update_interval=1, start_steps=10000, log_interval=10,
                  eval_interval=5000, num_eval_episodes=5, seed=0):
 
         # Environment.
@@ -29,7 +28,7 @@ class Agent:
             memory_size=memory_size,
             state_shape=self._env.observation_space.shape,
             action_shape=self._env.action_space.shape,
-            gamma=gamma, nstep=nstep)
+            gamma=self._algo.gamma, nstep=self._algo.nstep)
 
         # Directory to log.
         self._log_dir = log_dir
@@ -54,9 +53,6 @@ class Agent:
         self._log_interval = log_interval
         self._eval_interval = eval_interval
         self._num_eval_episodes = num_eval_episodes
-
-        setattr(self._algo, '_gamma', gamma)
-        setattr(self._algo, '_discount', gamma ** nstep)
 
     def run(self):
         while True:
@@ -102,7 +98,7 @@ class Agent:
                 if self._steps % self._update_interval == 0:
                     batch = self._replay_buffer.sample(
                         self._batch_size, self._device)
-                    self._algo.learn(batch, self._writer)
+                    self._algo.update_online_networks(batch, self._writer)
 
                 # Update target networks.
                 self._algo.update_target_networks()

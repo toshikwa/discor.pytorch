@@ -2,8 +2,6 @@ Agent:
   num_steps: 3000000
   batch_size: 256
   memory_size: 1000000
-  gamma: 0.99
-  nstep: 1
   update_interval: 1
   start_steps: 10000
   log_interval: 10
@@ -11,6 +9,8 @@ Agent:
   num_eval_episodes: 5
 
 SAC:
+  gamma: 0.99
+  nstep: 1
   policy_lr: 0.0003
   q_lr: 0.0003
   entropy_lr: 0.0003

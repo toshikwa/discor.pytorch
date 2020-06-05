@@ -7,7 +7,7 @@ import torch
 class Algorithm(ABC):
 
     @abstractmethod
-    def __init__(self, device, log_interval=10, seed=0):
+    def __init__(self, device, gamma=0.99, nstep=1, log_interval=10, seed=0):
         # Set seed.
         torch.manual_seed(seed)
         np.random.seed(seed)
@@ -16,9 +16,10 @@ class Algorithm(ABC):
 
         self._learning_steps = 0
         self._device = device
+        self._gamma = gamma
+        self._nstep = nstep
+        self._discount = gamma ** nstep
         self._log_interval = log_interval
-        self._gamma = None
-        self._discount = None
 
     @abstractmethod
     def explore(self, state):
@@ -33,10 +34,18 @@ class Algorithm(ABC):
         pass
 
     @abstractmethod
-    def learn(self, batch, writer):
+    def update_online_networks(self, batch, writer):
         pass
 
     @abstractmethod
     def save_models(self, save_dir):
         if not os.path.exists(save_dir):
             os.makedirs(save_dir)
+
+    @property
+    def gamma(self):
+        return self._gamma
+
+    @property
+    def nstep(self):
+        return self._nstep

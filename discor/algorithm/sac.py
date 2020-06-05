@@ -9,11 +9,11 @@ from discor.utils import disable_gradients, soft_update, update_params
 
 class SAC(Algorithm):
 
-    def __init__(self, state_dim, action_dim, device, policy_lr=0.0003,
-                 q_lr=0.0003, entropy_lr=0.0003,
+    def __init__(self, state_dim, action_dim, device, gamma=0.99, nstep=1,
+                 policy_lr=0.0003, q_lr=0.0003, entropy_lr=0.0003,
                  policy_hidden_units=[256, 256], q_hidden_units=[256, 256],
                  target_update_coef=0.005, log_interval=10, seed=0):
-        super().__init__(device, log_interval, seed)
+        super().__init__(device, gamma, nstep, log_interval, seed)
 
         # Build networks.
         self._policy_net = GaussianPolicy(
@@ -71,7 +71,7 @@ class SAC(Algorithm):
         soft_update(
             self._target_q_net, self._online_q_net, self._target_update_coef)
 
-    def learn(self, batch, writer):
+    def update_online_networks(self, batch, writer):
         self._learning_steps += 1
         self.update_policy_and_entropy(batch, writer)
         self.update_q_functions(batch, writer)
