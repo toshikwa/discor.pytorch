@@ -67,8 +67,7 @@ class DisCor(SAC):
             next_states, dones, curr_qs1, curr_qs2, target_qs)
 
         # Calculate importance weights.
-        imp_ws1, imp_ws2 = \
-            self.calc_importance_weights(next_states, dones)
+        imp_ws1, imp_ws2 = self.calc_importance_weights(next_states, dones)
 
         # Update policy.
         policy_loss, entropies = self.calc_policy_loss(states)
@@ -143,12 +142,13 @@ class DisCor(SAC):
             next_errs1, next_errs2 = \
                 self._target_error_net(next_states, next_actions)
 
-        numerators1 = (1.0 - dones) * self._gamma * next_errs1
-        numerators2 = (1.0 - dones) * self._gamma * next_errs2
+        # Numerators inside the exponent of importance weights.
+        nums1 = (1.0 - dones) * self._gamma * next_errs1
+        nums2 = (1.0 - dones) * self._gamma * next_errs2
 
         # Calculate self-normalized importance weights.
-        imp_ws1 = torch.exp(- numerators1 / self._tau1)
-        imp_ws2 = torch.exp(- numerators2 / self._tau2)
+        imp_ws1 = torch.exp(- nums1 / self._tau1)
+        imp_ws2 = torch.exp(- nums2 / self._tau2)
 
         return imp_ws1 / imp_ws1.sum(), imp_ws2 / imp_ws2.sum()
 
