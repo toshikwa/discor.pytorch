@@ -27,7 +27,7 @@ class Algorithm(ABC):
         pass
 
     @abstractmethod
-    def update_target(self):
+    def update_target_networks(self):
         pass
 
     @abstractmethod

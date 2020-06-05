@@ -105,7 +105,7 @@ class Agent:
                     self._algo.learn(batch, self._writer)
 
                 # Update target networks.
-                self._algo.update_target()
+                self._algo.update_target_networks()
 
                 # Evaluate.
                 if self._steps % self._eval_interval == 0:

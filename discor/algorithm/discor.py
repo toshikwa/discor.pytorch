@@ -59,10 +59,11 @@ class DisCor(SAC):
         curr_qs1, curr_qs2 = self.calc_current_q(states, actions)
         target_qs = self.calc_target_q(rewards, next_states, dones)
 
-        # Calculate target errors and importance weights.
+        # Calculate current and target errors, as well as importance weights.
+        curr_errs1, curr_errs2, imp_ws1, imp_ws2 = \
+            self.calc_current_error(states, actions)
         target_errs1, target_errs2 = self.calc_target_error(
             next_states, dones, curr_qs1, curr_qs2, target_qs)
-        errs1, errs2, w1, w2 = self.calc_importance_weights(states, actions)
 
         # Update policy.
         policy_loss, entropies = self.calc_policy_loss(states)
@@ -70,7 +71,7 @@ class DisCor(SAC):
 
         # Update Q functions.
         q_loss, mean_q1, mean_q2 = \
-            self.calc_q_loss(curr_qs1, curr_qs2, target_qs, w1, w2)
+            self.calc_q_loss(curr_qs1, curr_qs2, target_qs, imp_ws1, imp_ws2)
         update_params(self._q_optim, q_loss)
 
         # Update the entropy coefficient.
@@ -80,7 +81,7 @@ class DisCor(SAC):
 
         # Update error models.
         err_loss = self.calc_error_loss(
-            errs1, errs2, target_errs1, target_errs2)
+            curr_errs1, curr_errs2, target_errs1, target_errs2)
         update_params(self._error_optim, err_loss)
 
         if self._learning_steps % self._log_interval == 0:
@@ -111,6 +112,17 @@ class DisCor(SAC):
             writer.add_scalar(
                 'stats/tau2', self._tau2.item(), self._learning_steps)
 
+    def calc_current_error(self, states, actions):
+        curr_errs1, curr_errs2 = self._online_error_net(states, actions)
+
+        # We calculate self-normalized importance weights.
+        imp_ws1 = torch.exp(- self._gamma * curr_errs1.detach() / self._tau1)
+        imp_ws2 = torch.exp(- self._gamma * curr_errs2.detach() / self._tau2)
+        imp_ws1 = imp_ws1 / imp_ws1.sum()
+        imp_ws2 = imp_ws2 / imp_ws2.sum()
+
+        return curr_errs1, curr_errs2, imp_ws1, imp_ws2
+
     def calc_target_error(self, next_states, dones, curr_qs1, curr_qs2,
                           target_qs):
         # Calculate targets of the cumulative sum of discounted Bellman errors,
@@ -127,25 +139,15 @@ class DisCor(SAC):
 
         return target_errs1, target_errs2
 
-    def calc_importance_weights(self, states, actions):
-        errs1, errs2 = self._online_error_net(states, actions)
-        w1 = torch.exp(- self._gamma * errs1.detach() / self._tau1)
-        w2 = torch.exp(- self._gamma * errs2.detach() / self._tau2)
-
-        # Self-normalize.
-        w1 = w1 / w1.sum()
-        w2 = w2 / w2.sum()
-
-        return errs1, errs2, w1, w2
-
-    def calc_error_loss(self, errs1, errs2, target_errs1, target_errs2):
-        err1_loss = torch.mean((errs1 - target_errs1).pow(2))
-        err2_loss = torch.mean((errs2 - target_errs2).pow(2))
+    def calc_error_loss(self, curr_errs1, curr_errs2, target_errs1,
+                        target_errs2):
+        err1_loss = torch.mean((curr_errs1 - target_errs1).pow(2))
+        err2_loss = torch.mean((curr_errs2 - target_errs2).pow(2))
 
         self._tau1 = self._tau1 * (1.0 - self._target_update_coef) + \
-            errs1.detach().mean() * self._target_update_coef
+            curr_errs1.detach().mean() * self._target_update_coef
         self._tau2 = self._tau2 * (1.0 - self._target_update_coef) + \
-            errs2.detach().mean() * self._target_update_coef
+            curr_errs2.detach().mean() * self._target_update_coef
 
         return err1_loss + err2_loss
 
