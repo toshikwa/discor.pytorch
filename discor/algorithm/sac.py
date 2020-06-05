@@ -1,4 +1,5 @@
 import os
+import numpy as np
 import torch
 from torch.optim import Adam
 
@@ -76,8 +77,8 @@ class SAC(Algorithm):
         states, actions, rewards, next_states, dones = batch
 
         # Calculate current and target Q values.
-        curr_qs1, curr_qs2 = self.calc_current_q(states, actions)
-        target_qs = self.calc_target_q(rewards, next_states, dones)
+        curr_qs1, curr_qs2 = self.calc_current_qs(states, actions)
+        target_qs = self.calc_target_qs(rewards, next_states, dones)
 
         # Update policy.
         policy_loss, entropies = self.calc_policy_loss(states)
@@ -114,11 +115,11 @@ class SAC(Algorithm):
                 'stats/entropy', entropies.detach().mean().item(),
                 self._learning_steps)
 
-    def calc_current_q(self, states, actions):
+    def calc_current_qs(self, states, actions):
         curr_qs1, curr_qs2 = self._online_q_net(states, actions)
         return curr_qs1, curr_qs2
 
-    def calc_target_q(self, rewards, next_states, dones):
+    def calc_target_qs(self, rewards, next_states, dones):
         with torch.no_grad():
             next_actions, next_entropies, _ = self._policy_net(next_states)
             next_qs1, next_qs2 = self._target_q_net(next_states, next_actions)
@@ -130,16 +131,21 @@ class SAC(Algorithm):
 
         return target_qs
 
-    def calc_q_loss(self, curr_qs1, curr_qs2, target_qs, imp_ws1=1.0,
-                    imp_ws2=1.0):
-        assert isinstance(imp_ws1, float) or imp_ws1.shape == curr_qs1.shape
-        assert isinstance(imp_ws2, float) or imp_ws2.shape == curr_qs2.shape
+    def calc_q_loss(self, curr_qs1, curr_qs2, target_qs, imp_ws1=None,
+                    imp_ws2=None):
+        assert imp_ws1 is None or imp_ws1.shape == curr_qs1.shape
+        assert imp_ws2 is None or imp_ws2.shape == curr_qs2.shape
         assert not target_qs.requires_grad
         assert curr_qs1.shape == target_qs.shape
 
         # Q loss is mean squared TD errors with importance weights.
-        q1_loss = torch.mean((curr_qs1 - target_qs).pow(2) * imp_ws1)
-        q2_loss = torch.mean((curr_qs2 - target_qs).pow(2) * imp_ws2)
+        if imp_ws1 is None:
+            q1_loss = torch.mean((curr_qs1 - target_qs).pow(2))
+            q2_loss = torch.mean((curr_qs2 - target_qs).pow(2))
+
+        else:
+            q1_loss = torch.sum((curr_qs1 - target_qs).pow(2) * imp_ws1)
+            q2_loss = torch.sum((curr_qs2 - target_qs).pow(2) * imp_ws2)
 
         # Mean Q values for logging.
         mean_q1 = curr_qs1.detach().mean().item()

@@ -20,9 +20,7 @@ pip install --upgrade pip
 pip install -r requirements.txt
 ```
 
-If you're using other than CUDA 10.2, you need to install PyTorch for the proper version of CUDA. See [instructions](https://pytorch.org/get-started/locally/) for more details.
-
-For example, you can install PyTorch for CUDA 9.2 as below.
+If you're using other than CUDA 10.2, you need to install PyTorch for the proper version of CUDA. See [instructions](https://pytorch.org/get-started/locally/) for more details. For example, you can install PyTorch for CUDA 9.2 as below.
 
 ```bash
 pip install torch==1.5.0+cu92 -f https://download.pytorch.org/whl/torch_stable.html

@@ -1,5 +1,7 @@
 from collections import deque
 import numpy as np
+import torch
+from torch import nn
 
 
 def update_params(optim, loss, retain_graph=False):
@@ -13,9 +15,22 @@ def disable_gradients(network):
         param.requires_grad = False
 
 
+def _soft_update(target, source, tau):
+    target.data.copy_(target.data * (1.0 - tau) + source.data * tau)
+
+
 def soft_update(target, source, tau):
-    for t, s in zip(target.parameters(), source.parameters()):
-        t.data.copy_(t.data * (1.0 - tau) + s.data * tau)
+    assert isinstance(target, nn.Module) or isinstance(target, torch.Tensor)
+
+    if isinstance(target, nn.Module):
+        for t, s in zip(target.parameters(), source.parameters()):
+            _soft_update(t, s, tau)
+
+    elif isinstance(target, torch.Tensor):
+        _soft_update(target, source, tau)
+
+    else:
+        raise NotImplementedError
 
 
 class RunningMeanStats:
