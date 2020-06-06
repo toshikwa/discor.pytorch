@@ -26,6 +26,19 @@ If you're using other than CUDA 10.2, you need to install PyTorch for the proper
 pip install torch==1.5.0+cu92 -f https://download.pytorch.org/whl/torch_stable.html
 ```
 
+## Example
+
+**MuJoCo**
+
+I trained DisCor and SAC on `Walker2d-v2` using config `config/mujoco.yaml`. Please replace `--algo discor` with `--algo sac` to train SAC instead.
+
+```bash
+python train.py --cuda --env_id Walker2d-v2 --config config/mujoco.yaml --algo discor
+```
+
+![Walker-2d](https://user-images.githubusercontent.com/37267851/83949440-c690ec00-a85e-11ea-8272-96183bdf4529.png)
+
+
 ## References
 [[1]](https://arxiv.org/abs/2003.07305) Kumar, Aviral, Abhishek Gupta, and Sergey Levine. "Discor: Corrective feedback in reinforcement learning via distribution correction." arXiv preprint arXiv:2003.07305 (2020).
 
