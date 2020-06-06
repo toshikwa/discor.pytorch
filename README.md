@@ -36,7 +36,8 @@ I trained DisCor and SAC on `Walker2d-v2` using config `config/mujoco.yaml`. Ple
 python train.py --cuda --env_id Walker2d-v2 --config config/mujoco.yaml --algo discor
 ```
 
-![Walker-2d](https://user-images.githubusercontent.com/37267851/83949440-c690ec00-a85e-11ea-8272-96183bdf4529.png)
+
+<img src="https://user-images.githubusercontent.com/37267851/83949440-c690ec00-a85e-11ea-8272-96183bdf4529.png" title="graph" width=600>
 
 
 ## References
