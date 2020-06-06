@@ -4,32 +4,26 @@ import argparse
 import numpy as np
 import torch
 
-from discor.env import make_env
+from discor.env import make_env, wrap_monitor
 from discor.algorithm import EvalAlgorithm
 
 
 def test(env, algo, render):
-
     state = env.reset()
     episode_return = 0.0
     done = False
-
     while (not done):
         action = algo.exploit(state)
         next_state, reward, done, info = env.step(action)
-
         if render:
             env.render()
-
         if env.is_metaworld:
             if info['success'] > 1e-6:
                 episode_return = info['success']
                 break
         else:
             episode_return += reward
-
         state = next_state
-
     return episode_return
 
 
@@ -43,6 +37,10 @@ def run(args):
     env = make_env(args.env_id)
     env.seed(args.seed)
 
+    if args.save:
+        env = wrap_monitor(
+            env, os.path.join(args.log_dir, 'monitor'))
+
     # Device to use.
     device = torch.device(
         "cuda" if args.cuda and torch.cuda.is_available() else "cpu")
@@ -53,6 +51,7 @@ def run(args):
         action_dim=env.action_space.shape[0],
         device=device,
         policy_hidden_units=policy_hidden_units)
+    algo.load_models(os.path.join(args.log_dir, 'model', 'best'))
 
     returns = np.empty((args.num_episodes))
     for i in range(args.num_episodes):
@@ -73,6 +72,7 @@ if __name__ == '__main__':
     parser.add_argument('--log_dir', type=str, required=True)
     parser.add_argument('--num_episodes', type=int, default=10)
     parser.add_argument('--render', action='store_true')
+    parser.add_argument('--save', action='store_true')
     parser.add_argument('--cuda', action='store_true')
     parser.add_argument('--seed', type=int, default=0)
     args = parser.parse_args()
