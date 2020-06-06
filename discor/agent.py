@@ -132,7 +132,9 @@ class Agent:
                 next_state, reward, done, info = self._test_env.step(action)
 
                 if self._test_env.is_metaworld:
-                    episode_return = info['success']
+                    if info['success'] > 1e-6:
+                        episode_return = info['success']
+                        break
                 else:
                     episode_return += reward
 

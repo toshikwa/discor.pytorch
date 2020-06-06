@@ -22,7 +22,9 @@ def test(env, algo, render):
             env.render()
 
         if env.is_metaworld:
-            episode_return = info['success']
+            if info['success'] > 1e-6:
+                episode_return = info['success']
+                break
         else:
             episode_return += reward
 
