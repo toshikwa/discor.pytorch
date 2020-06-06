@@ -129,8 +129,13 @@ class Agent:
             done = False
             while (not done):
                 action = self._algo.exploit(state)
-                next_state, reward, done, _ = self._test_env.step(action)
-                episode_return += reward
+                next_state, reward, done, info = self._test_env.step(action)
+
+                if self._test_env.is_metaworld:
+                    episode_return = info['success']
+                else:
+                    episode_return += reward
+
                 state = next_state
 
             total_return += episode_return

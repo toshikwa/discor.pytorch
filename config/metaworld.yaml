@@ -1,0 +1,25 @@
+Agent:
+  num_steps: 3000000
+  batch_size: 128
+  memory_size: 1000000
+  update_interval: 1
+  start_steps: 1000
+  log_interval: 10
+  eval_interval: 5000
+  num_eval_episodes: 10
+
+SAC:
+  gamma: 0.99
+  nstep: 1
+  policy_lr: 0.0003
+  q_lr: 0.0003
+  entropy_lr: 0.0003
+  policy_hidden_units: [256, 256, 256]
+  q_hidden_units: [256, 256, 256]
+  target_update_coef: 0.005
+  log_interval: 10
+
+DisCor:
+  error_lr: 0.0003
+  error_hidden_units: [256, 256, 256, 256]
+  tau_init: 10.0

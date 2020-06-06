@@ -2,9 +2,9 @@ import os
 import yaml
 import argparse
 from datetime import datetime
-import gym
 import torch
 
+from discor.env import make_env
 from discor.algorithm import SAC, DisCor
 from discor.agent import Agent
 
@@ -13,9 +13,12 @@ def run(args):
     with open(args.config) as f:
         config = yaml.load(f, Loader=yaml.SafeLoader)
 
+    if args.num_steps is not None:
+        config['Agent']['num_steps'] = args.num_steps
+
     # Create environments.
-    env = gym.make(args.env_id)
-    test_env = gym.make(args.env_id)
+    env = make_env(args.env_id)
+    test_env = make_env(args.env_id)
 
     # Device to use.
     device = torch.device(
@@ -51,8 +54,9 @@ def run(args):
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument(
-        '--config', type=str, default=os.path.join('config', 'mujoco.yaml'))
-    parser.add_argument('--env_id', type=str, default='Walker2d-v2')
+        '--config', type=str, default=os.path.join('config', 'metaworld.yaml'))
+    parser.add_argument('--num_steps', type=int, required=False)
+    parser.add_argument('--env_id', type=str, default='hammer-v1')
     parser.add_argument('--algo', choices=['sac', 'discor'], default='discor')
     parser.add_argument('--cuda', action='store_true')
     parser.add_argument('--seed', type=int, default=0)
