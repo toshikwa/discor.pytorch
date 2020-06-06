@@ -13,22 +13,23 @@ class SAC(Algorithm):
                  policy_lr=0.0003, q_lr=0.0003, entropy_lr=0.0003,
                  policy_hidden_units=[256, 256], q_hidden_units=[256, 256],
                  target_update_coef=0.005, log_interval=10, seed=0):
-        super().__init__(device, gamma, nstep, log_interval, seed)
+        super().__init__(
+            state_dim, action_dim, device, gamma, nstep, log_interval, seed)
 
         # Build networks.
         self._policy_net = GaussianPolicy(
-            state_dim=state_dim,
-            action_dim=action_dim,
+            state_dim=self._state_dim,
+            action_dim=self._action_dim,
             hidden_units=policy_hidden_units
             ).to(self._device)
         self._online_q_net = TwinnedStateActionFunction(
-            state_dim=state_dim,
-            action_dim=action_dim,
+            state_dim=self._state_dim,
+            action_dim=self._action_dim,
             hidden_units=q_hidden_units
             ).to(self._device)
         self._target_q_net = TwinnedStateActionFunction(
-            state_dim=state_dim,
-            action_dim=action_dim,
+            state_dim=self._state_dim,
+            action_dim=self._action_dim,
             hidden_units=q_hidden_units
             ).to(self._device).eval()
 
@@ -43,7 +44,7 @@ class SAC(Algorithm):
         self._q_optim = Adam(self._online_q_net.parameters(), lr=q_lr)
 
         # Target entropy is -|A|.
-        self._target_entropy = -float(action_dim)
+        self._target_entropy = -float(self._action_dim)
 
         # We optimize log(alpha), instead of alpha.
         self._log_alpha = torch.zeros(

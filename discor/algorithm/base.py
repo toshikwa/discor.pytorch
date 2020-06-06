@@ -7,7 +7,8 @@ import torch
 class Algorithm(ABC):
 
     @abstractmethod
-    def __init__(self, device, gamma=0.99, nstep=1, log_interval=10, seed=0):
+    def __init__(self, state_dim, action_dim, device, gamma=0.99, nstep=1,
+                 log_interval=10, seed=0):
         # Set seed.
         torch.manual_seed(seed)
         np.random.seed(seed)
@@ -15,6 +16,8 @@ class Algorithm(ABC):
         # torch.backends.cudnn.benchmark = False  # It harms a performance.
 
         self._learning_steps = 0
+        self._state_dim = state_dim
+        self._action_dim = action_dim
         self._device = device
         self._gamma = gamma
         self._nstep = nstep
