@@ -4,7 +4,8 @@ from torch.optim import Adam
 
 from .base import Algorithm
 from discor.network import TwinnedStateActionFunction, GaussianPolicy
-from discor.utils import disable_gradients, soft_update, update_params
+from discor.utils import disable_gradients, soft_update, update_params, \
+    assert_action
 
 
 class SAC(Algorithm):
@@ -59,14 +60,18 @@ class SAC(Algorithm):
             state[None, ...], dtype=torch.float, device=self._device)
         with torch.no_grad():
             action, _, _ = self._policy_net(state)
-        return action.cpu().numpy()[0]
+        action = action.cpu().numpy()[0]
+        assert_action(action)
+        return action
 
     def exploit(self, state):
         state = torch.tensor(
             state[None, ...], dtype=torch.float, device=self._device)
         with torch.no_grad():
             _, _, action = self._policy_net(state)
-        return action.cpu().numpy()[0]
+        action = action.cpu().numpy()[0]
+        assert_action(action)
+        return action
 
     def update_target_networks(self):
         soft_update(

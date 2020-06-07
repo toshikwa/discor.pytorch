@@ -4,7 +4,7 @@ from torch.optim import Adam
 
 from .sac import SAC
 from discor.network import TwinnedStateActionFunction
-from discor.utils import disable_gradients, soft_update, update_params
+from discor.utils import disable_gradients, soft_update, update_params, softmax
 
 
 class DisCor(SAC):
@@ -93,15 +93,15 @@ class DisCor(SAC):
             next_errs1, next_errs2 = \
                 self._target_error_net(next_states, next_actions)
 
-        # Numerators inside the exponent of importance weights.
-        nums1 = (1.0 - dones) * self._gamma * next_errs1
-        nums2 = (1.0 - dones) * self._gamma * next_errs2
+        # Terms inside the exponent of importance weights.
+        x1 = -(1.0 - dones) * self._gamma * next_errs1 / self._tau1
+        x2 = -(1.0 - dones) * self._gamma * next_errs2 / self._tau2
 
         # Calculate self-normalized importance weights.
-        imp_ws1 = torch.exp(- nums1 / self._tau1)
-        imp_ws2 = torch.exp(- nums2 / self._tau2)
+        imp_ws1 = softmax(x1)
+        imp_ws2 = softmax(x2)
 
-        return imp_ws1 / imp_ws1.sum(), imp_ws2 / imp_ws2.sum()
+        return imp_ws1, imp_ws2
 
     def calc_current_errors(self, states, actions):
         curr_errs1, curr_errs2 = self._online_error_net(states, actions)

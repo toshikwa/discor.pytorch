@@ -33,6 +33,19 @@ def soft_update(target, source, tau):
         raise NotImplementedError
 
 
+def softmax(x):
+    assert x.dim() == 2
+    max_x, _ = torch.max(x, dim=1, keepdim=True)
+    exp_x = torch.exp(x - max_x)
+    sum_exp_x = torch.sum(exp_x, dim=1, keepdim=True)
+    return exp_x / sum_exp_x
+
+
+def assert_action(action):
+    assert isinstance(action, np.ndarray)
+    assert not np.isnan(np.sum(action)), 'Action has a Nan value.'
+
+
 class RunningMeanStats:
 
     def __init__(self, n=10):

@@ -1,4 +1,3 @@
-import numpy as np
 import gym
 from gym import wrappers
 from gym.envs.registration import register
@@ -19,18 +18,9 @@ METAWORLD_TASKS = (
     'stick-pull-v1', 'dial-turn-v1', 'peg-insert-side-v1')
 
 for task in METAWORLD_TASKS:
-
-    class StableEnv(ALL_ENVIRONMENTS[task]):
-        def step(self, action):
-            action = np.clip(
-                action, self.action_space.low + 1e-8,
-                self.action_space.high - 1e-8)
-            obs, reward, done, info = super().step(action)
-            return obs, reward, done, info
-
     register(
         id=task,
-        entry_point=StableEnv,
+        entry_point=ALL_ENVIRONMENTS[task],
         max_episode_steps=150)
     assert_env(gym.make(task))
 
