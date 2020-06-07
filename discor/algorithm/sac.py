@@ -50,14 +50,14 @@ class SAC(Algorithm):
         # We optimize log(alpha), instead of alpha.
         self._log_alpha = torch.zeros(
             1, device=self._device, requires_grad=True)
-        self._alpha = self._log_alpha.exp()
+        self._alpha = self._log_alpha.detach().exp()
         self._alpha_optim = Adam([self._log_alpha], lr=entropy_lr)
 
         self._target_update_coef = target_update_coef
 
     def explore(self, state):
         state = torch.tensor(
-            state[None, ...], dtype=torch.float, device=self._device)
+            state[None, ...].copy(), dtype=torch.float, device=self._device)
         with torch.no_grad():
             action, _, _ = self._policy_net(state)
         action = action.cpu().numpy()[0]
@@ -66,7 +66,7 @@ class SAC(Algorithm):
 
     def exploit(self, state):
         state = torch.tensor(
-            state[None, ...], dtype=torch.float, device=self._device)
+            state[None, ...].copy(), dtype=torch.float, device=self._device)
         with torch.no_grad():
             _, _, action = self._policy_net(state)
         action = action.cpu().numpy()[0]
@@ -92,7 +92,7 @@ class SAC(Algorithm):
         # Update the entropy coefficient.
         entropy_loss = self.calc_entropy_loss(entropies)
         update_params(self._alpha_optim, entropy_loss)
-        self._alpha = self._log_alpha.exp()
+        self._alpha = self._log_alpha.detach().exp()
 
         if self._learning_steps % self._log_interval == 0:
             writer.add_scalar(
@@ -102,7 +102,7 @@ class SAC(Algorithm):
                 'loss/entropy', entropy_loss.detach().item(),
                 self._learning_steps)
             writer.add_scalar(
-                'stats/alpha', self._alpha.detach().item(),
+                'stats/alpha', self._alpha.item(),
                 self._learning_steps)
             writer.add_scalar(
                 'stats/entropy', entropies.detach().mean().item(),
@@ -120,7 +120,7 @@ class SAC(Algorithm):
         assert qs.shape == entropies.shape
         policy_loss = torch.mean((- qs - self._alpha * entropies))
 
-        return policy_loss, entropies.detach()
+        return policy_loss, entropies.detach_()
 
     def calc_entropy_loss(self, entropies):
         assert not entropies.requires_grad
