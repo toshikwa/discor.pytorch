@@ -34,10 +34,10 @@ def soft_update(target, source, tau):
 
 
 def softmax(x):
-    assert x.dim() == 2
-    max_x, _ = torch.max(x, dim=1, keepdim=True)
+    assert x.dim() == 2 and x.shape[1] == 1
+    max_x, _ = torch.max(x, dim=0, keepdim=True)
     exp_x = torch.exp(x - max_x)
-    sum_exp_x = torch.sum(exp_x, dim=1, keepdim=True)
+    sum_exp_x = torch.sum(exp_x, dim=0, keepdim=True)
     return exp_x / sum_exp_x
 
 
