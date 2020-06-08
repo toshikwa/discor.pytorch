@@ -138,9 +138,8 @@ class Agent:
                 episode_return += reward
                 state = next_state
 
-                if self._test_env.is_metaworld:
-                    if info['success'] > 1e-8:
-                        success = 1.0
+                if self._test_env.is_metaworld and info['success'] > 1e-8:
+                    success = 1.0
 
             total_return += episode_return
             if self._test_env.is_metaworld:

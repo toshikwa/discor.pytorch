@@ -1,7 +1,7 @@
 # DisCor in PyTorch
 This is a PyTorch implementation of DisCor[[1]](#references) and Soft Actor-Critic[[2,3]](#references). I tried to make it easy for readers to understand the algorithm. Please let me know if you have any questions.
 
-![walker](https://user-images.githubusercontent.com/37267851/83952299-eaf6c380-a872-11ea-8bb1-16e1d82c1dd2.gif)
+![walker](https://user-images.githubusercontent.com/37267851/83952299-eaf6c380-a872-11ea-8bb1-16e1d82c1dd2.gif) ![hammer](https://user-images.githubusercontent.com/37267851/84055501-e277c780-a9ef-11ea-9ba5-397b5d2d8f04.gif)
 
 
 ## Setup
