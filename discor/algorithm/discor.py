@@ -1,10 +1,11 @@
 import os
 import torch
 from torch.optim import Adam
+from torch.nn import functional as F
 
 from .sac import SAC
 from discor.network import TwinnedStateActionFunction
-from discor.utils import disable_gradients, soft_update, update_params, softmax
+from discor.utils import disable_gradients, soft_update, update_params
 
 
 class DisCor(SAC):
@@ -98,8 +99,8 @@ class DisCor(SAC):
         x2 = -(1.0 - dones) * self._gamma * next_errs2 / self._tau2
 
         # Calculate self-normalized importance weights.
-        imp_ws1 = softmax(x1)
-        imp_ws2 = softmax(x2)
+        imp_ws1 = F.softmax(x1, dim=0)
+        imp_ws2 = F.softmax(x2, dim=0)
 
         return imp_ws1, imp_ws2
 
