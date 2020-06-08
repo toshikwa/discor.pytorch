@@ -22,24 +22,29 @@ pip install --upgrade pip
 pip install -r requirements.txt
 ```
 
-If you're using other than CUDA 10.2, you need to install PyTorch for the proper version of CUDA. See [instructions](https://pytorch.org/get-started/locally/) for more details. For example, you can install PyTorch for CUDA 9.2 as below.
-
-```bash
-pip install torch==1.5.0+cu92 -f https://download.pytorch.org/whl/torch_stable.html
-```
+If you're using other than CUDA 10.2, you need to install PyTorch for the proper version of CUDA. See [instructions](https://pytorch.org/get-started/locally/) for more details.
 
 ## Example
 
-**MuJoCo**
+### MetaWorld
 
-I trained DisCor and SAC on `Walker2d-v2` using config `config/mujoco.yaml`. Please replace `--algo discor` with `--algo sac` to train SAC instead.
+First, I trained DisCor and SAC on `hammer-v1` from MetaWorld tasks as below. Following the DisCor paper, I visualized success rate in addition to test return. These graphs correspond to Figure 7 and 16 in the paper.
+
+```bash
+python train.py --cuda --env_id hammer-v1 --config config/metaworld.yaml --num_steps 2000000 --algo discor
+```
+
+<img src="https://user-images.githubusercontent.com/37267851/84064097-0ee61080-a9fd-11ea-8afa-4d139b97bacb.png" title="graph" width=450> <img src="https://user-images.githubusercontent.com/37267851/84063868-aeef6a00-a9fc-11ea-8967-2563e2f22b6b.png" title="graph" width=450>
+
+### Gym
+
+I trained DisCor and SAC on `Walker2d-v2` from Gym tasks as below. A graph corresponds to Figure 17 in the paper.
 
 ```bash
 python train.py --cuda --env_id Walker2d-v2 --config config/mujoco.yaml --algo discor
 ```
 
-
-<img src="https://user-images.githubusercontent.com/37267851/83949440-c690ec00-a85e-11ea-8272-96183bdf4529.png" title="graph" width=600>
+<img src="https://user-images.githubusercontent.com/37267851/83949440-c690ec00-a85e-11ea-8272-96183bdf4529.png" title="graph" width=450>
 
 
 ## References
