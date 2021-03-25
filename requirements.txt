@@ -1,4 +1,4 @@
-pyyaml==5.3.1
+pyyaml==5.4
 gym==0.17.2
 numpy==1.18.4
 mujoco-py==2.0.2.10
